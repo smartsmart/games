@@ -1,0 +1,599 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>混沌遊戲實驗室</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700;900&display=swap">
+<style>
+/* Layout: square plotting sheet on the left (sticky on desktop), instrument panel on the right; stacks on phones. */
+:root{
+  --bg:#eceff4; --panel:#ffffff; --ink:#18202d; --muted:#5a6577; --line:#d3d9e3;
+  --sheet:#fbfcfe; --grid:#e3e8f0; --accent:#2343b0; --accent-ink:#ffffff; --soft:#e4e9f6;
+  --v0:#2f63d6; --v1:#d9472f; --v2:#16936b; --v3:#b97f06; --v4:#8443cc; --v5:#c93583; --v6:#0f8399; --v7:#5f7110;
+  --f-display:"Noto Serif TC","Songti TC",serif;
+  --f-body:"Noto Sans TC","Microsoft JhengHei","PingFang TC",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1218; --panel:#161b24; --ink:#e5e9f0; --muted:#98a2b3; --line:#2a3240;
+  --sheet:#0a0d13; --grid:#171d27; --accent:#8ea6ff; --accent-ink:#0b1020; --soft:#1e2638;
+  --v0:#6f9bff; --v1:#ff7a5e; --v2:#3cc995; --v3:#f0b43a; --v4:#b688ff; --v5:#ff6fb5; --v6:#3cc3d9; --v7:#a9c240;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1218; --panel:#161b24; --ink:#e5e9f0; --muted:#98a2b3; --line:#2a3240;
+  --sheet:#0a0d13; --grid:#171d27; --accent:#8ea6ff; --accent-ink:#0b1020; --soft:#1e2638;
+  --v0:#6f9bff; --v1:#ff7a5e; --v2:#3cc995; --v3:#f0b43a; --v4:#b688ff; --v5:#ff6fb5; --v6:#3cc3d9; --v7:#a9c240;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.55}
+.app{max-width:1400px;margin:0 auto;padding-block:20px 32px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
+header{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 20px}
+h1{font-family:var(--f-display);font-weight:900;font-size:clamp(26px,3.4vw,36px);margin:0;letter-spacing:.02em;text-wrap:balance}
+h1 small{font-family:var(--f-mono);font-weight:400;font-size:13px;color:var(--muted);letter-spacing:.08em;margin-left:10px}
+.rules{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0;padding:0;list-style:none;color:var(--muted);font-size:13px;counter-reset:r}
+.rules li{counter-increment:r}
+.rules li::before{content:counter(r);display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--soft);color:var(--accent);font:500 11px var(--f-mono);margin-right:6px}
+.stage{min-width:0;display:flex;flex-direction:column;gap:10px;position:sticky;top:16px}
+.sheet{position:relative;width:100%;max-width:min(100%,max(340px,calc(100vh - 170px)));aspect-ratio:1;margin:0 auto;border:1px solid var(--line);border-radius:6px;overflow:hidden;
+  background-color:var(--sheet);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:5% 5%;background-position:-1px -1px}
+.sheet canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#ov{touch-action:none}
+.caption{max-width:min(100%,max(340px,calc(100vh - 170px)));width:100%;margin:0 auto;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--muted);min-height:22px}
+.caption b{color:var(--ink);font-weight:500}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.panel{display:flex;flex-direction:column;gap:14px;min-width:0}
+section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+h2{margin:0;font-size:12px;font-weight:700;letter-spacing:.12em;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.row.between{justify-content:space-between}
+label{font-size:13px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field .head{display:flex;justify-content:space-between;align-items:baseline;font-size:13px}
+.field .head span:last-child{font-family:var(--f-mono);color:var(--accent);font-variant-numeric:tabular-nums}
+select,input[type=number]{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;min-width:0}
+select{width:100%}
+input[type=number]{width:90px;font-family:var(--f-mono)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px;vertical-align:-3px;margin:0 6px 0 0}
+button{font:inherit;font-size:13px;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer;transition:background .15s,border-color .15s}
+button:hover{border-color:var(--accent)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:500;min-width:92px}
+button.small{padding:3px 9px;font-family:var(--f-mono);font-size:12px}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:transparent}
+.seg button[aria-pressed="true"]{background:var(--soft);color:var(--accent);font-weight:500}
+.hint{font-size:12px;color:var(--muted);margin:0}
+kbd{font:11px var(--f-mono);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;background:var(--bg)}
+.stats{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
+.stats dt{color:var(--muted)}
+.stats dd{margin:0;text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.vrows{display:flex;flex-direction:column;gap:5px}
+.vrow{display:grid;grid-template-columns:22px 1fr 70px 52px;gap:8px;align-items:center;font-size:12px}
+.vrow .sw{width:14px;height:14px;border-radius:50%;justify-self:center}
+.vrow .bar{height:6px;background:var(--soft);border-radius:3px;overflow:hidden}
+.vrow .bar i{display:block;height:100%;border-radius:3px}
+.vrow .n,.vrow .p{font-family:var(--f-mono);text-align:right;font-variant-numeric:tabular-nums}
+.vrow .p{color:var(--muted)}
+#log{margin:0;padding:0;list-style:none;font:12px/1.7 var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums;max-height:180px;overflow:auto}
+#log li:first-child{color:var(--ink)}
+#log .k{font-weight:500}
+.note{font-size:12px;color:var(--v1)}
+@media (max-width:880px){.app{grid-template-columns:minmax(0,1fr)}.stage{position:static}}
+@media (prefers-reduced-motion:reduce){button{transition:none}}
+</style>
+
+<div class="app">
+  <header>
+    <h1>混沌遊戲<small>CHAOS GAME</small></h1>
+    <ol class="rules">
+      <li>隨機選一個頂點</li>
+      <li>從目前的點往該頂點走 r 的距離（r = ½ 就是中點）</li>
+      <li>新點成為下一輪的目前點，重複</li>
+    </ol>
+  </header>
+
+  <div class="stage">
+    <div class="sheet" id="sheet">
+      <canvas id="pc" aria-hidden="true"></canvas>
+      <canvas id="ov" aria-label="混沌遊戲畫布：可新增、拖曳頂點或設定起始點"></canvas>
+    </div>
+    <div class="caption"><span id="caption">按「開始」或「單步」執行</span><span id="modeHint"></span></div>
+  </div>
+
+  <div class="panel">
+    <section>
+      <h2>頂點</h2>
+      <div class="field">
+        <label for="preset">預設圖形</label>
+        <select id="preset"></select>
+      </div>
+      <div class="row">
+        <label for="ngon">正多邊形</label>
+        <select id="ngon" style="width:auto"></select>
+        <button id="btnNgon">產生</button>
+        <button id="btnClear">清除頂點</button>
+      </div>
+      <div class="seg" role="group" aria-label="點擊畫布時的動作">
+        <button id="modeEdit" aria-pressed="true">編輯頂點</button>
+        <button id="modeStart" aria-pressed="false">設定起始點</button>
+      </div>
+      <p class="hint" id="editHint"></p>
+    </section>
+
+    <section>
+      <h2>執行</h2>
+      <div class="row">
+        <button class="primary" id="btnRun">▶ 開始</button>
+        <button id="btnStep">單步</button>
+        <button id="btnReset">重設</button>
+        <button id="btnNewStart">新起始點</button>
+      </div>
+      <div class="field">
+        <div class="head"><label for="speed">速度</label><span id="speedLbl"></span></div>
+        <input type="range" id="speed" min="0" max="8" step="1" value="5">
+      </div>
+      <div class="row">
+        <span class="hint" style="margin-right:2px">一次加入</span>
+        <button class="small" data-add="1000">+1,000</button>
+        <button class="small" data-add="10000">+10,000</button>
+        <button class="small" data-add="100000">+100,000</button>
+      </div>
+      <p class="hint">快捷鍵：<kbd>空白</kbd> 開始／暫停　<kbd>→</kbd> 單步　<kbd>R</kbd> 重設</p>
+      <p class="note" id="note" hidden></p>
+    </section>
+
+    <section>
+      <h2>規則</h2>
+      <div class="field">
+        <div class="head"><label for="ratio">移動比例 r</label><span id="ratioLbl"></span></div>
+        <input type="range" id="ratio" min="0.05" max="0.95" step="0.001" value="0.5">
+        <div class="row">
+          <button class="small" data-r="0.5">½</button>
+          <button class="small" data-r="0.6667">⅔</button>
+          <button class="small" data-r="0.618">0.618</button>
+          <button class="small" data-r="0.75">¾</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="rule">選頂點的限制</label>
+        <select id="rule">
+          <option value="none">無限制</option>
+          <option value="norepeat">不可與上一次相同</option>
+          <option value="noneighbor">不可選上一頂點的下一個（順時針）</option>
+        </select>
+      </div>
+      <div class="row between">
+        <label for="skip">略過前 N 步不畫（起始點收斂前的雜點）</label>
+        <input type="number" id="skip" min="0" max="1000" value="20">
+      </div>
+    </section>
+
+    <section>
+      <h2>顯示</h2>
+      <div class="field">
+        <label for="colorMode">點的顏色</label>
+        <select id="colorMode">
+          <option value="vertex">依選中的頂點上色</option>
+          <option value="mono">單一顏色</option>
+        </select>
+      </div>
+      <div class="field">
+        <div class="head"><label for="psize">點大小</label><span id="psizeLbl"></span></div>
+        <input type="range" id="psize" min="1" max="6" step="1" value="2">
+      </div>
+      <label><input type="checkbox" id="showTrail" checked>顯示最近幾步的軌跡（慢速時）</label>
+      <label><input type="checkbox" id="showLabels" checked>顯示頂點標籤</label>
+    </section>
+
+    <section>
+      <h2>統計</h2>
+      <dl class="stats">
+        <dt>總步數</dt><dd id="stSteps">0</dd>
+        <dt>已畫出的點</dt><dd id="stPts">0</dd>
+      </dl>
+      <div class="vrows" id="vrows"></div>
+    </section>
+
+    <section>
+      <h2>步驟紀錄（單步或每秒 ≤ 10 步時）</h2>
+      <ul id="log"><li>尚無紀錄</li></ul>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const pc = $('pc'), ov = $('ov'), sheet = $('sheet');
+const cP = pc.getContext('2d'), cO = ov.getContext('2d');
+
+const SPEEDS = [
+  {ps:1, l:'每秒 1 步'}, {ps:3, l:'每秒 3 步'}, {ps:10, l:'每秒 10 步'}, {ps:60, l:'每秒 60 步'},
+  {pf:10, l:'每幀 10 步'}, {pf:200, l:'每幀 200 步'}, {pf:1000, l:'每幀 1,000 步'}, {pf:5000, l:'每幀 5,000 步'}, {pf:20000, l:'每幀 20,000 步'}
+];
+const MAX_PTS = 3000000, MAX_VERTS = 12;
+const LBL = i => String.fromCharCode(65 + i);
+const fmt = n => n.toLocaleString('en-US');
+
+const S = {
+  verts: [], start: {x:.5, y:.5}, cur: {x:.5, y:.5}, prevK: -1, steps: 0, counts: [],
+  trail: [], running: false, mode: 'edit', r: .5, rule: 'none', skip: 20,
+  color: 'vertex', size: 2, showTrail: true, showLabels: true, speedIdx: 5, acc: 0,
+  anim: null, log: []
+};
+
+// ---------- point storage ----------
+const P = { x: new Float32Array(1 << 16), y: new Float32Array(1 << 16), k: new Uint8Array(1 << 16), n: 0 };
+function pushPt(x, y, k) {
+  if (P.n >= MAX_PTS) return false;
+  if (P.n === P.x.length) {
+    const cap = Math.min(P.x.length * 2, MAX_PTS);
+    const nx = new Float32Array(cap), ny = new Float32Array(cap), nk = new Uint8Array(cap);
+    nx.set(P.x); ny.set(P.y); nk.set(P.k); P.x = nx; P.y = ny; P.k = nk;
+  }
+  P.x[P.n] = x; P.y[P.n] = y; P.k[P.n] = k; P.n++;
+  return true;
+}
+
+// ---------- theme ----------
+let vcol = [], vhex = [], acc = [0,0,0], T = {};
+const hexToRgb = h => { h = h.replace('#',''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+function readTheme() {
+  const cs = getComputedStyle(document.documentElement);
+  vhex = []; for (let i = 0; i < 8; i++) vhex.push(cs.getPropertyValue('--v' + i).trim() || '#888888');
+  vcol = vhex.map(hexToRgb);
+  const g = n => cs.getPropertyValue(n).trim();
+  T = { ink: g('--ink'), muted: g('--muted'), line: g('--line'), panel: g('--panel'), accent: g('--accent'), sheet: g('--sheet') };
+  acc = hexToRgb(T.accent);
+  redrawAll(); renderStats(true);
+}
+const vc = k => vhex[k % vhex.length];
+
+// ---------- canvas sizing & pixel buffer ----------
+let W = 0, cssW = 0, dpr = 1, img = null, buf = null, dirty = false, psz = 1;
+function layout() {
+  const r = sheet.getBoundingClientRect();
+  cssW = Math.max(50, r.width); dpr = window.devicePixelRatio || 1;
+  const w = Math.round(cssW * dpr);
+  if (w === W) return;
+  W = w;
+  pc.width = pc.height = ov.width = ov.height = W;
+  img = cP.createImageData(W, W); buf = img.data;
+  cO.setTransform(dpr, 0, 0, dpr, 0, 0);
+  calcSize(); redrawAll();
+}
+function calcSize() { psz = Math.max(1, Math.round(S.size * dpr / 2)); }
+function plot(x, y, k) {
+  const c = S.color === 'vertex' ? vcol[k % vcol.length] : acc;
+  const px = (x * W - psz / 2) | 0, py = (y * W - psz / 2) | 0;
+  for (let dy = 0; dy < psz; dy++) {
+    const iy = py + dy; if (iy < 0 || iy >= W) continue;
+    for (let dx = 0; dx < psz; dx++) {
+      const ix = px + dx; if (ix < 0 || ix >= W) continue;
+      const i = (iy * W + ix) << 2;
+      buf[i] = c[0]; buf[i + 1] = c[1]; buf[i + 2] = c[2]; buf[i + 3] = 255;
+    }
+  }
+  dirty = true;
+}
+function redrawAll() {
+  if (!buf) return;
+  buf.fill(0);
+  for (let i = 0; i < P.n; i++) plot(P.x[i], P.y[i], P.k[i]);
+  dirty = true;
+}
+
+// ---------- geometry & presets ----------
+function regular(n) {
+  const off = -Math.PI / 2 + (n % 2 === 0 ? Math.PI / n : 0), R = .43, cy = n === 3 ? .56 : .5;
+  return Array.from({length: n}, (_, i) => ({ x: .5 + R * Math.cos(off + 2 * Math.PI * i / n), y: cy + R * Math.sin(off + 2 * Math.PI * i / n) }));
+}
+function carpet() {
+  const a = .08, b = .5, c = .92;
+  return [{x:a,y:a},{x:b,y:a},{x:c,y:a},{x:c,y:b},{x:c,y:c},{x:b,y:c},{x:a,y:c},{x:a,y:b}];
+}
+const PRESETS = [
+  {id:'sier', name:'謝爾賓斯基三角形（3 點・r = ½）', v:() => regular(3), r:.5, rule:'none'},
+  {id:'sq', name:'正方形・無限制（對照組：會均勻填滿）', v:() => regular(4), r:.5, rule:'none'},
+  {id:'sqnr', name:'正方形・不可與上一次相同', v:() => regular(4), r:.5, rule:'norepeat'},
+  {id:'sqnb', name:'正方形・不可選上一頂點的下一個', v:() => regular(4), r:.5, rule:'noneighbor'},
+  {id:'pent', name:'五邊形・r = 0.618', v:() => regular(5), r:.618, rule:'none'},
+  {id:'pentnr', name:'五邊形・r = ½・不可與上一次相同', v:() => regular(5), r:.5, rule:'norepeat'},
+  {id:'hex', name:'六邊形・r = ⅔', v:() => regular(6), r:2/3, rule:'none'},
+  {id:'carpet', name:'謝爾賓斯基地毯（8 點・r = ⅔）', v:carpet, r:2/3, rule:'none'},
+  {id:'custom', name:'自訂', v:null}
+];
+const presetSel = $('preset');
+PRESETS.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; presetSel.appendChild(o); });
+for (let n = 3; n <= 10; n++) { const o = document.createElement('option'); o.value = n; o.textContent = n + ' 邊形'; $('ngon').appendChild(o); }
+
+function applyPreset(id) {
+  const p = PRESETS.find(q => q.id === id); if (!p || !p.v) return;
+  S.verts = p.v(); setRatio(p.r, false); S.rule = p.rule; $('rule').value = p.rule;
+  presetSel.value = id; resetPoints();
+}
+function markCustom() { presetSel.value = 'custom'; }
+
+// ---------- simulation ----------
+function allowed(k) {
+  if (S.prevK < 0) return true;
+  if (S.rule === 'norepeat') return k !== S.prevK;
+  if (S.rule === 'noneighbor') return k !== (S.prevK + 1) % S.verts.length;
+  return true;
+}
+function chooseVertex() {
+  const n = S.verts.length; let k = 0;
+  for (let t = 0; t < 64; t++) { k = (Math.random() * n) | 0; if (allowed(k)) return k; }
+  return k;
+}
+let note = '';
+function step(record) {
+  const k = chooseVertex(), v = S.verts[k];
+  const fx = S.cur.x, fy = S.cur.y;
+  S.cur.x = fx + S.r * (v.x - fx); S.cur.y = fy + S.r * (v.y - fy);
+  S.prevK = k; S.steps++; S.counts[k] = (S.counts[k] || 0) + 1;
+  if (S.steps > S.skip) {
+    if (pushPt(S.cur.x, S.cur.y, k)) plot(S.cur.x, S.cur.y, k);
+    else { setRunning(false); showNote('已達 ' + fmt(MAX_PTS) + ' 點上限，已自動暫停。按「重設」重新開始。'); return false; }
+  }
+  if (S.showTrail) { S.trail.push({x: S.cur.x, y: S.cur.y}); if (S.trail.length > 14) S.trail.shift(); }
+  if (record) {
+    S.anim = { fx, fy, k, tx: S.cur.x, ty: S.cur.y, t0: performance.now() };
+    const where = Math.abs(S.r - .5) < 1e-6 ? '中點' : 'r = ' + S.r.toFixed(3) + ' 處';
+    $('caption').innerHTML = '第 <b class="mono">' + fmt(S.steps) + '</b> 步：選中頂點 <b style="color:' + vc(k) + '">' + LBL(k) + '</b>，取連線的' + where +
+      (S.steps <= S.skip ? '（略過不畫）' : '');
+    S.log.unshift('#' + S.steps + ' <span class="k" style="color:' + vc(k) + '">' + LBL(k) + '</span>  (' + fx.toFixed(3) + ', ' + fy.toFixed(3) + ') → (' + S.cur.x.toFixed(3) + ', ' + S.cur.y.toFixed(3) + ')');
+    if (S.log.length > 40) S.log.pop();
+    logDirty = true;
+  }
+  return true;
+}
+function runSteps(n, recordLast) {
+  if (S.verts.length < 2) { setRunning(false); showNote('至少需要 2 個頂點。請在畫布上點擊新增頂點，或選一個預設圖形。'); return; }
+  for (let i = 0; i < n; i++) if (!step(recordLast && i === n - 1)) break;
+  statsDirty = true;
+}
+function resetPoints() {
+  P.n = 0; if (buf) { buf.fill(0); dirty = true; }
+  S.steps = 0; S.counts = new Array(S.verts.length).fill(0);
+  S.cur = {x: S.start.x, y: S.start.y}; S.prevK = -1; S.trail = [{x: S.cur.x, y: S.cur.y}];
+  S.anim = null; S.log = []; logDirty = true; statsDirty = true; hideNote();
+  $('caption').textContent = S.verts.length < 2 ? '在畫布上點擊以新增頂點' : (S.running ? '執行中…' : '按「開始」或「單步」執行');
+}
+function randomStart() { S.start = { x: .03 + Math.random() * .94, y: .03 + Math.random() * .94 }; resetPoints(); }
+
+// ---------- UI state ----------
+let statsDirty = true, logDirty = true, lastStats = 0;
+function setRunning(on) {
+  S.running = on; S.acc = 0;
+  $('btnRun').textContent = on ? '⏸ 暫停' : '▶ 開始';
+  if (on) hideNote();
+}
+function showNote(t) { const n = $('note'); n.textContent = t; n.hidden = false; }
+function hideNote() { $('note').hidden = true; }
+function setRatio(r, reset = true) {
+  S.r = +r; $('ratio').value = S.r; $('ratioLbl').textContent = S.r.toFixed(3);
+  if (reset) { markCustomRule(); resetPoints(); }
+}
+function markCustomRule() {
+  const p = PRESETS.find(q => q.id === presetSel.value);
+  if (p && p.v && (Math.abs(p.r - S.r) > 1e-3 || p.rule !== S.rule)) markCustom();
+}
+function setSpeed(i) { S.speedIdx = +i; $('speed').value = i; $('speedLbl').textContent = SPEEDS[i].l; }
+function setMode(m) {
+  S.mode = m;
+  $('modeEdit').setAttribute('aria-pressed', m === 'edit'); $('modeStart').setAttribute('aria-pressed', m === 'start');
+  $('editHint').textContent = m === 'edit'
+    ? '點空白處新增頂點（最多 12 個）・拖曳移動・右鍵或連點兩下刪除'
+    : '在畫布上點一下，指定新的起始點（三角形內外都可以）';
+  $('modeHint').textContent = m === 'edit' ? '模式：編輯頂點' : '模式：設定起始點';
+  ov.style.cursor = m === 'start' ? 'crosshair' : 'copy';
+}
+
+function renderStats(force) {
+  $('stSteps').textContent = fmt(S.steps);
+  $('stPts').textContent = fmt(P.n);
+  const box = $('vrows'), n = S.verts.length, tot = S.steps || 1;
+  if (force || box.children.length !== n) {
+    box.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+      const d = document.createElement('div'); d.className = 'vrow';
+      d.innerHTML = '<span class="sw" style="background:' + vc(i) + '"></span><span class="bar"><i style="background:' + vc(i) + ';width:0"></i></span><span class="n">0</span><span class="p">0%</span>';
+      d.firstChild.title = '頂點 ' + LBL(i);
+      d.insertAdjacentHTML('afterbegin', '');
+      box.appendChild(d);
+    }
+    if (!n) box.innerHTML = '<p class="hint">尚無頂點</p>';
+  }
+  for (let i = 0; i < n; i++) {
+    const row = box.children[i], c = S.counts[i] || 0, pct = c / tot * 100;
+    row.children[0].textContent = LBL(i); row.children[0].style.color = T.panel;
+    row.children[0].style.font = '600 9px var(--f-mono)'; row.children[0].style.display = 'grid'; row.children[0].style.placeItems = 'center';
+    row.children[1].firstChild.style.width = Math.min(100, pct * n / 2) + '%';
+    row.children[2].textContent = fmt(c);
+    row.children[3].textContent = S.steps ? pct.toFixed(1) + '%' : '—';
+  }
+}
+function renderLog() {
+  $('log').innerHTML = S.log.length ? S.log.map(s => '<li>' + s + '</li>').join('') : '<li>尚無紀錄</li>';
+}
+
+// ---------- overlay drawing ----------
+function X(v) { return v * cssW; }
+function drawStar(cx, cy, r) {
+  cO.beginPath();
+  for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * .45 : r; cO.lineTo(cx + rr * Math.cos(a), cy + rr * Math.sin(a)); }
+  cO.closePath();
+}
+function drawOverlay(now) {
+  cO.clearRect(0, 0, cssW, cssW);
+  const V = S.verts, n = V.length, sp = SPEEDS[S.speedIdx];
+  const slow = !S.running || !!(sp.ps && sp.ps <= 60);
+  // polygon outline
+  if (n >= 2) {
+    cO.save(); cO.setLineDash([4, 5]); cO.strokeStyle = T.line; cO.lineWidth = 1;
+    cO.beginPath(); V.forEach((v, i) => i ? cO.lineTo(X(v.x), X(v.y)) : cO.moveTo(X(v.x), X(v.y)));
+    if (n >= 3) cO.closePath(); cO.stroke(); cO.restore();
+  }
+  // trail
+  if (S.showTrail && slow && S.trail.length > 1) {
+    cO.save(); cO.strokeStyle = T.muted; cO.lineWidth = 1;
+    for (let i = 1; i < S.trail.length; i++) {
+      cO.globalAlpha = .15 + .55 * i / S.trail.length;
+      cO.beginPath(); cO.moveTo(X(S.trail[i-1].x), X(S.trail[i-1].y)); cO.lineTo(X(S.trail[i].x), X(S.trail[i].y)); cO.stroke();
+    }
+    cO.restore();
+  }
+  // step animation
+  let hiK = -1;
+  if (S.anim && S.verts[S.anim.k]) {
+    const a = S.anim, v = S.verts[a.k];
+    const dur = S.running && sp.ps ? Math.min(600, 800 / sp.ps) : 600;
+    const t = Math.min(1, (now - a.t0) / dur), e = 1 - Math.pow(1 - t, 3);
+    hiK = a.k;
+    cO.save();
+    cO.strokeStyle = vc(a.k); cO.lineWidth = 1.5; cO.setLineDash([6, 4]); cO.globalAlpha = .8;
+    cO.beginPath(); cO.moveTo(X(a.fx), X(a.fy)); cO.lineTo(X(v.x), X(v.y)); cO.stroke();
+    cO.setLineDash([]); cO.globalAlpha = 1; cO.lineWidth = 3;
+    const mx = a.fx + (a.tx - a.fx) * e, my = a.fy + (a.ty - a.fy) * e;
+    cO.beginPath(); cO.moveTo(X(a.fx), X(a.fy)); cO.lineTo(X(mx), X(my)); cO.stroke();
+    cO.fillStyle = T.muted; cO.beginPath(); cO.arc(X(a.fx), X(a.fy), 3.5, 0, 7); cO.fill();
+    cO.fillStyle = vc(a.k); cO.beginPath(); cO.arc(X(mx), X(my), 5 + (1 - t) * 4, 0, 7); cO.fill();
+    cO.restore();
+    if (t >= 1 && S.running && !sp.ps) S.anim = null;
+  }
+  // start point
+  cO.save(); drawStar(X(S.start.x), X(S.start.y), 8);
+  cO.fillStyle = T.sheet; cO.fill(); cO.strokeStyle = T.ink; cO.lineWidth = 1.5; cO.stroke();
+  if (S.showLabels) { cO.fillStyle = T.muted; cO.font = '11px ' + getComputedStyle(document.body).getPropertyValue('--f-body'); cO.fillText('起點', X(S.start.x) + 10, X(S.start.y) + 4); }
+  cO.restore();
+  // current point
+  if (slow) {
+    cO.save(); cO.strokeStyle = T.ink; cO.lineWidth = 1.5;
+    cO.beginPath(); cO.arc(X(S.cur.x), X(S.cur.y), 6, 0, 7); cO.stroke(); cO.restore();
+  }
+  // vertices
+  let cx = 0, cy = 0; V.forEach(v => { cx += v.x; cy += v.y; }); if (n) { cx /= n; cy /= n; }
+  V.forEach((v, i) => {
+    const x = X(v.x), y = X(v.y);
+    cO.save();
+    if (i === hiK) { cO.strokeStyle = vc(i); cO.lineWidth = 2; cO.beginPath(); cO.arc(x, y, 13, 0, 7); cO.stroke(); }
+    if (i === hoverK || i === dragK) { cO.strokeStyle = T.ink; cO.lineWidth = 1; cO.beginPath(); cO.arc(x, y, 11, 0, 7); cO.stroke(); }
+    cO.fillStyle = vc(i); cO.strokeStyle = T.panel; cO.lineWidth = 2;
+    cO.beginPath(); cO.arc(x, y, 7, 0, 7); cO.fill(); cO.stroke();
+    if (S.showLabels) {
+      let dx = v.x - cx, dy = v.y - cy; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d; if (n < 2) { dx = 0; dy = -1; }
+      cO.fillStyle = T.ink; cO.font = '600 13px "IBM Plex Mono", monospace'; cO.textAlign = 'center'; cO.textBaseline = 'middle';
+      let lx = x + dx * 20, ly = y + dy * 20;
+      lx = Math.max(10, Math.min(cssW - 10, lx)); ly = Math.max(10, Math.min(cssW - 10, ly));
+      cO.fillText(LBL(i), lx, ly);
+    }
+    cO.restore();
+  });
+}
+
+// ---------- pointer interaction ----------
+let dragK = -1, hoverK = -1, lastTap = {k: -1, t: 0}, moved = false;
+const pos = e => { const r = ov.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; };
+const clamp = p => ({ x: Math.min(1, Math.max(0, p.x)), y: Math.min(1, Math.max(0, p.y)) });
+function hit(p) {
+  const th = 14 / cssW; let best = -1, bd = th;
+  S.verts.forEach((v, i) => { const d = Math.hypot(v.x - p.x, v.y - p.y); if (d < bd) { bd = d; best = i; } });
+  return best;
+}
+function removeVertex(k) { S.verts.splice(k, 1); markCustom(); resetPoints(); }
+ov.addEventListener('pointerdown', e => {
+  const p = clamp(pos(e));
+  if (S.mode === 'start') { S.start = p; resetPoints(); return; }
+  if (e.button === 2) return;
+  const h = hit(p), now = performance.now();
+  moved = false;
+  if (h >= 0) {
+    if (lastTap.k === h && now - lastTap.t < 380) { removeVertex(h); lastTap = {k: -1, t: 0}; return; }
+    lastTap = {k: h, t: now};
+    dragK = h; ov.setPointerCapture(e.pointerId); ov.style.cursor = 'grabbing';
+  } else {
+    lastTap = {k: -1, t: 0};
+    if (S.verts.length >= MAX_VERTS) { showNote('最多 ' + MAX_VERTS + ' 個頂點。'); return; }
+    S.verts.push(p); markCustom(); resetPoints();
+    dragK = S.verts.length - 1; ov.setPointerCapture(e.pointerId);
+  }
+});
+ov.addEventListener('pointermove', e => {
+  const p = clamp(pos(e));
+  if (dragK >= 0) { moved = true; S.verts[dragK] = p; markCustom(); resetPoints(); return; }
+  if (S.mode === 'edit') { hoverK = hit(p); ov.style.cursor = hoverK >= 0 ? 'grab' : 'copy'; }
+});
+const endDrag = () => { if (moved) lastTap = {k: -1, t: 0}; dragK = -1; if (S.mode === 'edit') ov.style.cursor = hoverK >= 0 ? 'grab' : 'copy'; };
+ov.addEventListener('pointerup', endDrag);
+ov.addEventListener('pointercancel', endDrag);
+ov.addEventListener('pointerleave', () => { hoverK = -1; });
+ov.addEventListener('contextmenu', e => {
+  e.preventDefault(); if (S.mode !== 'edit') return;
+  const h = hit(pos(e)); if (h >= 0) removeVertex(h);
+});
+
+// ---------- controls ----------
+presetSel.addEventListener('change', () => applyPreset(presetSel.value));
+$('btnNgon').addEventListener('click', () => { S.verts = regular(+$('ngon').value); markCustom(); resetPoints(); });
+$('btnClear').addEventListener('click', () => { S.verts = []; setRunning(false); markCustom(); resetPoints(); setMode('edit'); });
+$('modeEdit').addEventListener('click', () => setMode('edit'));
+$('modeStart').addEventListener('click', () => setMode('start'));
+$('btnRun').addEventListener('click', toggleRun);
+$('btnStep').addEventListener('click', doStep);
+$('btnReset').addEventListener('click', () => resetPoints());
+$('btnNewStart').addEventListener('click', randomStart);
+$('speed').addEventListener('input', e => setSpeed(e.target.value));
+document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => { runSteps(+b.dataset.add, false); }));
+$('ratio').addEventListener('input', e => setRatio(e.target.value));
+document.querySelectorAll('[data-r]').forEach(b => b.addEventListener('click', () => setRatio(b.dataset.r)));
+$('rule').addEventListener('change', e => { S.rule = e.target.value; markCustomRule(); resetPoints(); });
+$('skip').addEventListener('change', e => { S.skip = Math.max(0, Math.min(1000, parseInt(e.target.value, 10) || 0)); e.target.value = S.skip; resetPoints(); });
+$('colorMode').addEventListener('change', e => { S.color = e.target.value; redrawAll(); });
+$('psize').addEventListener('input', e => { S.size = +e.target.value; $('psizeLbl').textContent = S.size; calcSize(); redrawAll(); });
+$('showTrail').addEventListener('change', e => { S.showTrail = e.target.checked; S.trail = [{x: S.cur.x, y: S.cur.y}]; });
+$('showLabels').addEventListener('change', e => { S.showLabels = e.target.checked; });
+
+function toggleRun() { if (!S.running && S.verts.length < 2) { showNote('至少需要 2 個頂點。'); return; } setRunning(!S.running); if (S.running) $('caption').textContent = '執行中…'; }
+function doStep() { setRunning(false); runSteps(1, true); }
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input, select, textarea') && e.target.type !== 'range' && e.target.type !== 'checkbox') return;
+  if (e.target.closest('button') && (e.key === ' ' || e.key === 'Enter')) return;
+  if (e.key === ' ') { e.preventDefault(); toggleRun(); }
+  else if (e.key === 'ArrowRight' && e.target.type !== 'range') { e.preventDefault(); doStep(); }
+  else if (e.key === 'r' || e.key === 'R') resetPoints();
+});
+
+// ---------- main loop ----------
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  if (S.running) {
+    const sp = SPEEDS[S.speedIdx]; let n;
+    if (sp.ps) { S.acc += dt * sp.ps; n = Math.floor(S.acc); S.acc -= n; } else n = sp.pf;
+    if (n > 0) runSteps(n, !!(sp.ps && sp.ps <= 10));
+  }
+  if (dirty) { cP.putImageData(img, 0, 0); dirty = false; }
+  drawOverlay(now);
+  if (statsDirty && now - lastStats > 120) { renderStats(false); statsDirty = false; lastStats = now; }
+  if (logDirty) { renderLog(); logDirty = false; }
+  requestAnimationFrame(frame);
+}
+
+new ResizeObserver(() => layout()).observe(sheet);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
+new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+// ---------- init: open with a sample already drawn ----------
+setMode('edit'); setSpeed(5); $('psizeLbl').textContent = S.size;
+S.start = { x: .18, y: .2 };
+applyPreset('sier');
+layout(); readTheme();
+runSteps(40000, false);
+$('caption').textContent = '已預先畫好 40,000 步的範例。按「重設」再按「單步」，可以一步一步看規則怎麼運作。';
+requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>

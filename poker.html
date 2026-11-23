@@ -1,0 +1,449 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>撲克湊數機</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: one felt table. Controls on top, deck at left and the dealt hand beside it, equation slip underneath. Single committed look, dark felt. */
+:root {
+  --felt: #10302a;
+  --felt-deep: #0b241f;
+  --fg: #e8efe9;
+  --mist: #a9bfb4;
+  --paper: #f6f3ea;
+  --ink: #1c2420;
+  --red: #b8322a;
+  --brass: #e0b95a;
+  --brass-ink: #2a2108;
+  --line: rgba(255, 255, 255, 0.14);
+  --font-display: "DM Serif Display", "Noto Serif TC", "Songti TC", serif;
+  --font-ui: "Space Grotesk", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --cw: 84px;
+  --ch: 118px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: radial-gradient(1200px 700px at 30% -10%, #1a4a40 0%, var(--felt) 55%, var(--felt-deep) 100%) fixed, var(--felt);
+  color: var(--fg);
+  font: 400 16px/1.6 var(--font-ui);
+  padding-block: 28px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 880px; margin: 0 auto; display: grid; gap: 22px; }
+h1 { font: 400 clamp(2rem, 6vw, 2.8rem)/1.1 var(--font-display); margin: 0; text-wrap: balance; }
+.sub { margin: 6px 0 0; color: var(--mist); max-width: 62ch; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 16px 18px; align-items: end; }
+.field { display: grid; gap: 4px; }
+.field label { font-size: .8rem; letter-spacing: .08em; color: var(--mist); }
+.field input {
+  width: 92px; min-height: 48px; padding: 8px 12px;
+  background: rgba(0, 0, 0, .28); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 10px;
+  font: 600 1.2rem var(--font-mono); font-variant-numeric: tabular-nums;
+}
+.btn {
+  min-height: 48px; padding: 10px 26px; border-radius: 10px; cursor: pointer;
+  font: 600 1.05rem var(--font-ui); letter-spacing: .06em;
+  border: 1px solid transparent;
+}
+.btn.main { background: var(--brass); color: var(--brass-ink); min-width: 150px; }
+.btn.main:hover:not(:disabled) { filter: brightness(1.08); }
+.btn.ghost { background: transparent; color: var(--fg); border-color: var(--line); }
+.btn.ghost:hover:not(:disabled) { border-color: var(--mist); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn:focus-visible, .field input:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+.rule { margin: 0; font-size: .88rem; color: var(--mist); }
+
+.table {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px 32px; align-items: start;
+  padding: 24px; border-radius: 18px;
+  background: rgba(0, 0, 0, .2); border: 1px solid var(--line);
+}
+.deckbox { display: grid; gap: 10px; justify-items: start; }
+.deck { position: relative; width: var(--cw); height: var(--ch); }
+.deck .layer { position: absolute; inset: 0; transform: translate(calc(var(--i) * 1.6px), calc(var(--i) * 1.6px)); }
+.deckcap { font: 600 .8rem var(--font-mono); color: var(--mist); font-variant-numeric: tabular-nums; }
+
+.hand { display: flex; flex-wrap: wrap; gap: 18px 14px; min-height: calc(var(--ch) + 34px); align-content: flex-start; }
+.slot { display: grid; gap: 8px; justify-items: center; }
+.cardwrap { width: var(--cw); height: var(--ch); position: relative; }
+.val { font: 600 .9rem var(--font-mono); color: var(--mist); opacity: 0; transition: opacity .3s; font-variant-numeric: tabular-nums; }
+.val.show { opacity: 1; }
+
+.card { position: absolute; inset: 0; perspective: 700px; font-size: calc(var(--cw) / 6.4); }
+.flip { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .45s ease; }
+.flip.up { transform: rotateY(180deg); }
+.face {
+  position: absolute; inset: 0; border-radius: 8px;
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .35);
+}
+.back {
+  background:
+    repeating-linear-gradient(45deg, rgba(224, 185, 90, .6) 0 2px, transparent 2px 8px),
+    repeating-linear-gradient(-45deg, rgba(224, 185, 90, .6) 0 2px, transparent 2px 8px),
+    #1b4a40;
+  border: 4px solid var(--paper);
+}
+.front { background: var(--paper); color: var(--ink); transform: rotateY(180deg); }
+.front.red { color: var(--red); }
+.corner { position: absolute; font-family: var(--font-display); line-height: 1; text-align: center; font-size: 1.5em; }
+.tl { top: .4em; left: .45em; }
+.br { bottom: .4em; right: .45em; transform: rotate(180deg); }
+.pip { position: absolute; inset: 0; display: grid; place-items: center; font-size: 3.2em; line-height: 1; }
+
+.results { border: 1px solid var(--line); border-radius: 14px; background: rgba(0, 0, 0, .22); padding: 18px 20px; }
+.results h2 { margin: 0; font: 600 .85rem var(--font-ui); letter-spacing: .12em; color: var(--mist); }
+.status { margin: 10px 0 0; color: var(--fg); }
+.status.dim { color: var(--mist); }
+.eqs { list-style: none; margin: 8px 0 0; padding: 0; }
+.eqs li { padding: 13px 0; border-top: 1px solid var(--line); font: 400 1.1rem/1.5 var(--font-mono); overflow-wrap: anywhere; }
+.eqs .res { color: var(--brass); font-weight: 600; }
+.note { margin: 10px 0 0; font-size: .85rem; color: var(--mist); }
+
+@media (max-width: 640px) {
+  :root { --cw: 58px; --ch: 82px; }
+  .table { grid-template-columns: minmax(0, 1fr); padding: 18px; gap: 20px; }
+  .hand { gap: 14px 10px; }
+  .eqs li { font-size: .98rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flip, .val { transition: none; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>撲克湊數機</h1>
+    <p class="sub">從 52 張牌抽出幾張，再用加、減、乘、除與括號，把每張牌各用一次，算出你設定的目標值。</p>
+  </header>
+
+  <section class="controls" aria-label="設定與操作">
+    <div class="field">
+      <label for="count">抽牌張數</label>
+      <input id="count" type="number" min="2" max="7" step="1" value="5" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label for="target">目標值</label>
+      <input id="target" type="number" step="1" value="120" inputmode="numeric">
+    </div>
+    <button id="main" class="btn main" type="button">抽牌</button>
+    <button id="redraw" class="btn ghost" type="button" hidden>重新抽牌</button>
+  </section>
+  <p class="rule">點數：A = 1，J = 11，Q = 12，K = 13。張數可設 2 到 7 張。除法可以出現分數，只要最後等於目標值就算。</p>
+
+  <section class="table" aria-label="牌桌">
+    <div class="deckbox">
+      <div class="deck" id="deck" aria-hidden="true"></div>
+      <div class="deckcap" id="deckcap">牌堆 52 張</div>
+    </div>
+    <div>
+      <div class="hand" id="hand" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="results" aria-label="算式結果">
+    <h2 id="rtitle">算式</h2>
+    <p class="status dim" id="status" role="status">目前是範例牌。按「抽牌」開始，牌下方的數字是計算用的點數。</p>
+    <ol class="eqs" id="eqs"></ol>
+    <p class="note" id="note" hidden></p>
+  </section>
+</div>
+
+<script>
+/* ---------- cards ---------- */
+var SUITS = [
+  { s: '♠︎', red: false },
+  { s: '♥︎', red: true },
+  { s: '♦︎', red: true },
+  { s: '♣︎', red: false }
+];
+var RANKS = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+
+function buildDeck() {
+  var d = [];
+  SUITS.forEach(function (su) {
+    RANKS.forEach(function (r, i) { d.push({ rank: r, value: i + 1, suit: su.s, red: su.red }); });
+  });
+  return d;
+}
+function shuffle(a) {
+  for (var i = a.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+
+/* SOLVER-START */
+function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { var t = a % b; a = b; b = t; } return a; }
+function mk(n, d, s, p) {
+  if (d < 0) { n = -n; d = -d; }
+  var g = gcd(n, d) || 1;
+  return { n: n / g, d: d / g, s: s, p: p };
+}
+function par(x, need) { return need ? '(' + x.s + ')' : x.s; }
+function combos(a, b) {
+  var out = [];
+  var x = a, y = b;
+  if (x.s > y.s) { x = b; y = a; }
+  out.push(mk(x.n * y.d + y.n * x.d, x.d * y.d, x.s + ' + ' + y.s, 1));
+  out.push(mk(x.n * y.n, x.d * y.d, par(x, x.p < 2) + ' × ' + par(y, y.p < 2), 2));
+  out.push(mk(a.n * b.d - b.n * a.d, a.d * b.d, a.s + ' − ' + par(b, b.p <= 1), 1));
+  out.push(mk(b.n * a.d - a.n * b.d, a.d * b.d, b.s + ' − ' + par(a, a.p <= 1), 1));
+  if (b.n !== 0) out.push(mk(a.n * b.d, a.d * b.n, par(a, a.p < 2) + ' ÷ ' + par(b, b.p <= 2), 2));
+  if (a.n !== 0) out.push(mk(b.n * a.d, b.d * a.n, par(b, b.p < 2) + ' ÷ ' + par(a, a.p <= 2), 2));
+  return out;
+}
+function solveHand(vals, target, opts) {
+  opts = opts || {};
+  var maxFound = opts.max || 400;
+  var deadline = Date.now() + (opts.ms || 1500);
+  var found = new Map();
+  var timedOut = false, steps = 0;
+  function rec(items) {
+    if (timedOut || found.size >= maxFound) return;
+    if (items.length === 1) {
+      var t = items[0];
+      if (t.d === 1 && t.n === target && !found.has(t.s)) found.set(t.s, t);
+      return;
+    }
+    for (var i = 0; i < items.length; i++) {
+      for (var j = i + 1; j < items.length; j++) {
+        if ((++steps & 511) === 0 && Date.now() > deadline) { timedOut = true; return; }
+        var rest = items.filter(function (_, k) { return k !== i && k !== j; });
+        var cs = combos(items[i], items[j]);
+        for (var c = 0; c < cs.length; c++) {
+          rec(rest.concat([cs[c]]));
+          if (timedOut || found.size >= maxFound) return;
+        }
+      }
+    }
+  }
+  rec(vals.map(function (v) { return mk(v, 1, String(v), 3); }));
+  return { list: Array.from(found.keys()), timedOut: timedOut, capped: found.size >= maxFound };
+}
+function pickDiverse(list, k) {
+  var groups = new Map();
+  shuffle(list.slice()).forEach(function (s) {
+    var sig = (s.match(/[+−×÷]/g) || []).sort().join('') + (s.indexOf('(') >= 0 ? 'p' : 'n');
+    if (!groups.has(sig)) groups.set(sig, []);
+    groups.get(sig).push(s);
+  });
+  var buckets = shuffle(Array.from(groups.values()));
+  var out = [], r = 0;
+  while (out.length < k && buckets.some(function (b) { return b.length > r; })) {
+    for (var i = 0; i < buckets.length && out.length < k; i++) {
+      if (buckets[i][r] !== undefined) out.push(buckets[i][r]);
+    }
+    r++;
+  }
+  return out;
+}
+/* SOLVER-END */
+
+/* ---------- ui ---------- */
+var $ = function (id) { return document.getElementById(id); };
+var elMain = $('main'), elRedraw = $('redraw'), elHand = $('hand'), elDeck = $('deck');
+var elCount = $('count'), elTarget = $('target'), elStatus = $('status'), elEqs = $('eqs');
+var elNote = $('note'), elTitle = $('rtitle'), elCap = $('deckcap');
+var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var phase = 'idle', hand = [];
+
+(function buildDeckStack() {
+  var h = '';
+  for (var i = 5; i >= 0; i--) {
+    h += '<div class="layer" style="--i:' + i + '"><div class="card" style="position:absolute;inset:0"><div class="flip"><div class="face back"></div></div></div></div>';
+  }
+  elDeck.innerHTML = h;
+})();
+
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, reduce ? 0 : ms); }); }
+function readCount() {
+  var n = parseInt(elCount.value, 10);
+  if (isNaN(n)) n = 5;
+  n = Math.max(2, Math.min(7, n));
+  elCount.value = n;
+  return n;
+}
+function readTarget() {
+  var t = parseInt(elTarget.value, 10);
+  if (isNaN(t)) t = 120;
+  elTarget.value = t;
+  return t;
+}
+
+function makeCard(c, faceUp) {
+  var wrap = document.createElement('div');
+  wrap.className = 'card';
+  var col = c.red ? ' red' : '';
+  wrap.innerHTML =
+    '<div class="flip' + (faceUp ? ' up' : '') + '">' +
+      '<div class="face back"></div>' +
+      '<div class="face front' + col + '">' +
+        '<span class="corner tl">' + c.rank + '<br>' + c.suit + '</span>' +
+        '<span class="pip">' + c.suit + '</span>' +
+        '<span class="corner br">' + c.rank + '<br>' + c.suit + '</span>' +
+      '</div>' +
+    '</div>';
+  return { el: wrap, flip: wrap.firstChild };
+}
+
+function layoutSlots(cards) {
+  elHand.innerHTML = '';
+  return cards.map(function (c) {
+    var slot = document.createElement('div');
+    slot.className = 'slot';
+    var cw = document.createElement('div');
+    cw.className = 'cardwrap';
+    var val = document.createElement('div');
+    val.className = 'val';
+    val.textContent = c.value;
+    val.setAttribute('aria-label', c.rank + ' 的點數是 ' + c.value);
+    slot.appendChild(cw);
+    slot.appendChild(val);
+    elHand.appendChild(slot);
+    return { wrap: cw, val: val };
+  });
+}
+
+function showStatic(cards) {
+  var slots = layoutSlots(cards);
+  cards.forEach(function (c, i) {
+    var m = makeCard(c, true);
+    slots[i].wrap.appendChild(m.el);
+    slots[i].val.classList.add('show');
+  });
+}
+
+async function dealAnimated(cards) {
+  var slots = layoutSlots(cards);
+  var top = elDeck.lastElementChild;
+  for (var i = 0; i < cards.length; i++) {
+    var m = makeCard(cards[i], false);
+    slots[i].wrap.appendChild(m.el);
+    m.el.style.zIndex = String(10 + i);
+    if (!reduce) {
+      var from = top.getBoundingClientRect();
+      var to = slots[i].wrap.getBoundingClientRect();
+      var dx = from.left - to.left, dy = from.top - to.top;
+      m.el.animate(
+        [{ transform: 'translate(' + dx + 'px,' + dy + 'px) rotate(-10deg) scale(1.05)' }, { transform: 'none' }],
+        { duration: 620, easing: 'cubic-bezier(.22,.9,.28,1)' }
+      );
+      (function (mm, sl) {
+        setTimeout(function () { mm.flip.classList.add('up'); sl.val.classList.add('show'); }, 300);
+      })(m, slots[i]);
+      await sleep(240);
+    } else {
+      m.flip.classList.add('up');
+      slots[i].val.classList.add('show');
+    }
+  }
+  await sleep(700);
+}
+
+function setPhase(p) {
+  phase = p;
+  elMain.disabled = (p === 'busy');
+  elRedraw.hidden = (p !== 'drawn');
+  elRedraw.disabled = (p === 'busy');
+  elMain.textContent = p === 'drawn' ? '找出算式' : (p === 'solved' ? '再抽一次' : '抽牌');
+}
+
+function clearResults() {
+  elEqs.innerHTML = '';
+  elNote.hidden = true;
+  elTitle.textContent = '算式';
+}
+
+async function draw() {
+  var n = readCount();
+  var target = readTarget();
+  setPhase('busy');
+  clearResults();
+  elStatus.className = 'status dim';
+  elStatus.textContent = '洗牌、發牌中…';
+  var deck = shuffle(buildDeck());
+  hand = deck.slice(0, n);
+  elCap.textContent = '牌堆 52 張';
+  await dealAnimated(hand);
+  elCap.textContent = '牌堆剩 ' + (52 - n) + ' 張';
+  var names = hand.map(function (c) { return c.rank; }).join('、');
+  elStatus.className = 'status';
+  elStatus.textContent = '抽到 ' + names + '。按「找出算式」，目標是 ' + target + '。';
+  setPhase('drawn');
+  elMain.focus();
+}
+
+function solve() {
+  var target = readTarget();
+  var vals = hand.map(function (c) { return c.value; });
+  elStatus.className = 'status dim';
+  elStatus.textContent = '計算中…';
+  setTimeout(function () {
+    var res = solveHand(vals, target, { max: 400, ms: 1800 });
+    var picks = pickDiverse(res.list, 5);
+    elTitle.textContent = '用 ' + vals.join('、') + ' 算出 ' + target;
+    elEqs.innerHTML = '';
+    if (!picks.length) {
+      elStatus.className = 'status';
+      elStatus.textContent = res.timedOut
+        ? '搜尋時間用完了，還沒找到算式。可以減少張數，或重抽一次。'
+        : '這組牌湊不出 ' + target + '。不是每一手牌都有解，可以重抽或調整目標值。';
+    } else {
+      elStatus.className = 'status';
+      elStatus.textContent = (res.list.length > picks.length || res.capped)
+        ? '找到不只 ' + picks.length + ' 組，列出其中 ' + picks.length + ' 組：'
+        : '只找到 ' + picks.length + ' 組：';
+      picks.forEach(function (s, i) {
+        var li = document.createElement('li');
+        li.innerHTML = '<span></span> <span class="res">= ' + target + '</span>';
+        li.firstChild.textContent = s;
+        elEqs.appendChild(li);
+        if (!reduce) li.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: i * 70, easing: 'ease-out', fill: 'backwards' });
+      });
+      if (res.timedOut) {
+        elNote.textContent = '搜尋有逾時，可能還有其他算式。';
+        elNote.hidden = false;
+      }
+    }
+    setPhase('solved');
+  }, 30);
+}
+
+elMain.addEventListener('click', function () {
+  if (phase === 'drawn') solve();
+  else if (phase === 'idle' || phase === 'solved') draw();
+});
+elRedraw.addEventListener('click', function () { if (phase === 'drawn') draw(); });
+elTarget.addEventListener('change', function () {
+  var t = readTarget();
+  if (phase === 'solved') {
+    clearResults();
+    elStatus.className = 'status';
+    elStatus.textContent = '目標改成 ' + t + '。按「找出算式」重新計算。';
+    setPhase('drawn');
+  }
+});
+[elCount, elTarget].forEach(function (el) {
+  el.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); elMain.click(); }
+  });
+});
+
+/* opening state: a sample hand, clearly labeled in the status line */
+showStatic([
+  { rank: '2', value: 2, suit: SUITS[0].s, red: false },
+  { rank: '3', value: 3, suit: SUITS[1].s, red: true },
+  { rank: '4', value: 4, suit: SUITS[3].s, red: false },
+  { rank: '5', value: 5, suit: SUITS[2].s, red: true },
+  { rank: '6', value: 6, suit: SUITS[0].s, red: false }
+]);
+setPhase('idle');
+</script>
+
+</body></html>
