@@ -1,5 +1,5 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
-<title>撲克湊數機</title>
+<title>數菁撲克遊戲桌</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;600&family=Space+Grotesk:wght@500;600&display=swap">
 <style>
@@ -104,11 +104,142 @@ h1 { font: 400 clamp(2rem, 6vw, 2.8rem)/1.1 var(--font-display); margin: 0; text
 .eqs .res { color: var(--brass); font-weight: 600; }
 .note { margin: 10px 0 0; font-size: .85rem; color: var(--mist); }
 
+/* ---------- 數菁 branding & fx ---------- */
+.top { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
+.badge {
+  display: inline-flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  padding: 5px 14px; border-radius: 999px; font: 600 .82rem var(--font-ui); letter-spacing: .14em;
+  color: var(--brass-ink); background: linear-gradient(90deg, #f5d77e, #e0b95a, #f0a75a, #f5d77e);
+  background-size: 300% 100%; animation: slide 6s linear infinite;
+  box-shadow: 0 0 18px rgba(224, 185, 90, .35);
+}
+h1.glow {
+  background: linear-gradient(100deg, #fff 0%, #f5d77e 30%, #fff 45%, #8fe3c8 70%, #fff 100%);
+  background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: slide 7s linear infinite; filter: drop-shadow(0 2px 12px rgba(224, 185, 90, .25));
+}
+h1.glow .su { font-size: .55em; letter-spacing: .1em; }
+@keyframes slide { to { background-position: -250% 0; } }
+.sound {
+  min-height: 42px; padding: 6px 14px; border-radius: 999px; cursor: pointer;
+  background: rgba(0, 0, 0, .28); color: var(--fg); border: 1px solid var(--line); font: 600 .9rem var(--font-ui);
+}
+.sound:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+#fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 50; }
+.pop {
+  position: fixed; z-index: 60; pointer-events: none; transform: translate(-50%, -50%);
+  font: 700 2rem var(--font-display); white-space: nowrap; text-shadow: 0 4px 18px rgba(0, 0, 0, .6);
+  animation: popup 1.1s cubic-bezier(.2, .9, .3, 1) forwards;
+}
+@keyframes popup {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(.4); }
+  20% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); }
+  100% { opacity: 0; transform: translate(-50%, -160%) scale(1); }
+}
+.shake { animation: shake .45s; }
+@keyframes shake {
+  0%, 100% { transform: none; } 20% { transform: translateX(-10px) rotate(-1deg); }
+  40% { transform: translateX(9px) rotate(1deg); } 60% { transform: translateX(-6px); } 80% { transform: translateX(4px); }
+}
+.timebar { height: 8px; border-radius: 99px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.timebar i { display: block; height: 100%; width: 100%; border-radius: inherit; background: linear-gradient(90deg, #8fe3a8, var(--brass)); transition: width .2s linear; }
+.timebar.warn i { background: linear-gradient(90deg, #ff6b5a, #ffb36b); animation: blink .5s infinite alternate; }
+@keyframes blink { to { opacity: .45; } }
+.combo { color: #ffb36b; font-weight: 700; }
+.fire b { color: #ffb36b; text-shadow: 0 0 14px rgba(255, 140, 60, .8); }
+.rank {
+  margin: 0; padding: 14px 18px; border-radius: 12px; text-align: center;
+  background: linear-gradient(135deg, rgba(224, 185, 90, .2), rgba(143, 227, 200, .12)); border: 1px solid rgba(224, 185, 90, .5);
+  font: 400 1.5rem var(--font-display); animation: popin .5s cubic-bezier(.2, .9, .3, 1.3);
+}
+.rank small { display: block; font: .85rem var(--font-ui); color: var(--mist); margin-top: 4px; }
+@keyframes popin { from { opacity: 0; transform: scale(.6); } }
+.tile:not(:disabled):hover .card, .tile.merged:not(:disabled):hover { filter: brightness(1.05); }
+.tile.sel { box-shadow: 0 0 24px rgba(224, 185, 90, .6); }
+@media (prefers-reduced-motion: reduce) {
+  .badge, h1.glow, .timebar.warn i { animation: none; }
+}
+
+/* ---------- tabs & shared game bits ---------- */
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--line); }
+.tab {
+  min-height: 46px; padding: 8px 18px; background: transparent; color: var(--mist);
+  border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px;
+  font: 600 1rem var(--font-ui); letter-spacing: .04em; cursor: pointer;
+}
+.tab:hover { color: var(--fg); }
+.tab[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--brass); }
+.tab:focus-visible { outline: 2px solid var(--brass); outline-offset: -2px; }
+.mode { display: grid; gap: 22px; }
+.mode > .sub { margin: 0; }
+.table.one { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.field select {
+  min-height: 48px; padding: 8px 12px; background: rgba(0, 0, 0, .28); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 10px; font: 600 1rem var(--font-ui);
+}
+.field select:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+.hud { display: flex; flex-wrap: wrap; gap: 10px 30px; }
+.stat { display: grid; }
+.stat b { font: 600 1.7rem/1.2 var(--font-mono); font-variant-numeric: tabular-nums; }
+.stat span { font-size: .78rem; letter-spacing: .08em; color: var(--mist); }
+.stat.warn b { color: #ff8a7a; }
+.goal { margin: 0; font: 400 clamp(1.5rem, 5vw, 2rem)/1.2 var(--font-display); }
+.goal b { color: var(--brass); font: 600 1.15em var(--font-mono); }
+.msg { margin: 0; min-height: 1.6em; color: var(--mist); overflow-wrap: anywhere; }
+.msg.good { color: #8fe3a8; }
+.msg.bad { color: #ff8a7a; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* 24 點挑戰 */
+.tiles { display: flex; flex-wrap: wrap; gap: 16px 14px; min-height: calc(var(--ch) + 10px); padding-top: 10px; }
+.tile {
+  position: relative; width: var(--cw); height: var(--ch); padding: 0; border: 0;
+  background: none; border-radius: 8px; cursor: pointer; transition: transform .15s;
+}
+.tile:hover:not(:disabled) { transform: translateY(-3px); }
+.tile.sel { transform: translateY(-9px); outline: 3px solid var(--brass); outline-offset: 3px; }
+.tile:disabled { cursor: default; }
+.tile:focus-visible { outline: 3px solid var(--brass); outline-offset: 3px; }
+.tile .card { pointer-events: none; }
+.tile.merged {
+  background: var(--paper); color: var(--ink); box-shadow: 0 6px 14px rgba(0, 0, 0, .35);
+  display: grid; align-content: center; justify-items: center; gap: 6px; padding: 6px;
+}
+.merged .mv { font: 600 calc(var(--cw) / 3.4)/1 var(--font-mono); }
+.merged .mx { font: 400 .6rem/1.25 var(--font-mono); color: #5d6862; text-align: center; overflow-wrap: anywhere; max-height: 3.8em; overflow: hidden; }
+.flash { animation: flash .7s ease-out; }
+@keyframes flash { from { box-shadow: 0 0 0 0 rgba(224, 185, 90, .9); } to { box-shadow: 0 0 0 22px rgba(224, 185, 90, 0); } }
+.op {
+  width: 58px; height: 58px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--line); background: rgba(0, 0, 0, .28); color: var(--fg);
+  font: 600 1.6rem var(--font-mono);
+}
+.op[aria-pressed="true"] { background: var(--brass); color: var(--brass-ink); }
+.op:disabled { opacity: .35; cursor: default; }
+.op:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; }
+.btn.small { min-height: 42px; padding: 6px 16px; font-size: .95rem; }
+
+/* 猜大小 */
+.big { --cw: 118px; --ch: 165px; }
+.duel { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.vs { font: 400 1.6rem var(--font-display); color: var(--mist); }
+.trail { display: flex; flex-wrap: wrap; gap: 6px; min-height: 46px; }
+.mini {
+  width: 34px; height: 46px; border-radius: 5px; background: var(--paper); color: var(--ink);
+  display: grid; place-items: center; text-align: center; font: 600 .78rem/1.05 var(--font-mono);
+}
+.mini.red { color: var(--red); }
+.check { display: inline-flex; gap: 8px; align-items: center; color: var(--mist); font-size: .9rem; cursor: pointer; }
+.odds { margin: 0; font: .9rem var(--font-mono); color: var(--mist); }
+
 @media (max-width: 640px) {
   :root { --cw: 58px; --ch: 82px; }
   .table { grid-template-columns: minmax(0, 1fr); padding: 18px; gap: 20px; }
   .hand { gap: 14px 10px; }
   .eqs li { font-size: .98rem; }
+  .big { --cw: 86px; --ch: 120px; }
+  .op { width: 52px; height: 52px; }
+  .tab { padding: 8px 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .flip, .val { transition: none; }
@@ -116,10 +247,23 @@ h1 { font: 400 clamp(2rem, 6vw, 2.8rem)/1.1 var(--font-display); margin: 0; text
 </style>
 
 <div class="wrap">
-  <header>
-    <h1>撲克湊數機</h1>
-    <p class="sub">從 52 張牌抽出幾張，再用加、減、乘、除與括號，把每張牌各用一次，算出你設定的目標值。</p>
+  <header class="top">
+    <div>
+      <span class="badge">★ 數菁 · 數學菁英班</span>
+      <h1 class="glow">數菁撲克遊戲桌 <span class="su">MATH ELITE</span></h1>
+    </div>
+    <button id="snd" class="sound" type="button" aria-pressed="true">🔊 音效開</button>
   </header>
+
+  <nav class="tabs" role="tablist" aria-label="遊戲">
+    <button class="tab" role="tab" type="button" aria-selected="true" data-mode="calc">湊數機</button>
+    <button class="tab" role="tab" type="button" aria-selected="false" data-mode="chal">24 點挑戰</button>
+    <button class="tab" role="tab" type="button" aria-selected="false" data-mode="hilo">猜大小</button>
+  </nav>
+
+  <!-- ===== 湊數機 ===== -->
+  <div class="mode" id="mode-calc">
+  <p class="sub">從 52 張牌抽出幾張，再用加、減、乘、除與括號，把每張牌各用一次，算出你設定的目標值。</p>
 
   <section class="controls" aria-label="設定與操作">
     <div class="field">
@@ -151,6 +295,81 @@ h1 { font: 400 clamp(2rem, 6vw, 2.8rem)/1.1 var(--font-display); margin: 0; text
     <ol class="eqs" id="eqs"></ol>
     <p class="note" id="note" hidden></p>
   </section>
+  </div>
+
+  <!-- ===== 24 點挑戰 ===== -->
+  <div class="mode" id="mode-chal" hidden>
+    <p class="sub">玩法超簡單：① 點一張牌　② 點 ＋ − × ÷　③ 再點一張牌，兩張就合成一個新數字。合到最後剩一張、等於目標就過關！連續過關有 COMBO 加分 🔥</p>
+    <section class="controls" aria-label="挑戰設定">
+      <div class="field">
+        <label for="cDiff">難度</label>
+        <select id="cDiff">
+          <option value="easy">入門：3 張小數字</option>
+          <option value="24">經典：4 張湊 24</option>
+          <option value="rand">高手：5 張湊隨機數</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="cTime">模式</label>
+        <select id="cTime">
+          <option value="90">限時 90 秒</option>
+          <option value="0">自由練習</option>
+        </select>
+      </div>
+      <button id="cStart" class="btn main" type="button">開始</button>
+    </section>
+    <div class="hud">
+      <div class="stat"><b id="cScore">0</b><span>分數</span></div>
+      <div class="stat" id="cTimeBox"><b id="cClock">90</b><span>剩餘秒數</span></div>
+      <div class="stat"><b id="cStreak">0</b><span>連續過關</span></div>
+      <div class="stat"><b id="cBest">0</b><span id="cBestLbl">最佳分數</span></div>
+    </div>
+    <div class="timebar" id="cBar" aria-hidden="true"><i></i></div>
+    <p class="rank" id="cRank" hidden></p>
+    <section class="table one" aria-label="挑戰牌桌">
+      <p class="goal">目標 <b id="cGoal">24</b></p>
+      <div class="tiles" id="cTiles"></div>
+      <div class="row" id="cOps" aria-label="運算">
+        <button class="op" type="button" data-op="+" aria-label="加">+</button>
+        <button class="op" type="button" data-op="−" aria-label="減">−</button>
+        <button class="op" type="button" data-op="×" aria-label="乘">×</button>
+        <button class="op" type="button" data-op="÷" aria-label="除">÷</button>
+      </div>
+      <p class="msg" id="cMsg" role="status">按「開始」發牌。</p>
+      <div class="row">
+        <button id="cUndo" class="btn ghost small" type="button">復原一步</button>
+        <button id="cReset" class="btn ghost small" type="button">這手重來</button>
+        <button id="cSkip" class="btn ghost small" type="button">換一手</button>
+        <button id="cHint" class="btn ghost small" type="button">看答案</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- ===== 猜大小 ===== -->
+  <div class="mode" id="mode-hilo" hidden>
+    <p class="sub">猜下一張牌比現在這張大還是小（A 最小、K 最大，一樣大也算你對）。一副 52 張，看你能連對幾張！鍵盤 ↑ ↓ 也可以猜。</p>
+    <div class="hud">
+      <div class="stat" id="hStreakBox"><b id="hStreak">0</b><span>連對</span></div>
+      <div class="stat"><b id="hBest">0</b><span>最佳紀錄</span></div>
+      <div class="stat"><b id="hLeft">51</b><span>牌堆剩</span></div>
+    </div>
+    <section class="table one" aria-label="猜大小牌桌">
+      <div class="duel big">
+        <div class="cardwrap" id="hCur"></div>
+        <span class="vs" aria-hidden="true">→</span>
+        <div class="cardwrap" id="hNext"></div>
+      </div>
+      <div class="row">
+        <button id="hHi" class="btn main" type="button">▲ 更大</button>
+        <button id="hLo" class="btn main" type="button">▼ 更小</button>
+        <button id="hNew" class="btn ghost" type="button" hidden>重新開始</button>
+      </div>
+      <p class="msg" id="hMsg" role="status"></p>
+      <label class="check"><input type="checkbox" id="hOdds"> 顯示算牌提示</label>
+      <p class="odds" id="hOddsTxt" hidden></p>
+      <div class="trail" id="hTrail" aria-label="已出過的牌"></div>
+    </section>
+  </div>
 </div>
 
 <script>
@@ -406,6 +625,7 @@ function solve() {
         elEqs.appendChild(li);
         if (!reduce) li.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: i * 70, easing: 'ease-out', fill: 'backwards' });
       });
+      if (typeof FX !== 'undefined') { var pc = FX.centerOf(elEqs); FX.burst(pc.x, pc.y, 50, .8); FX.sfx.win(); }
       if (res.timedOut) {
         elNote.textContent = '搜尋有逾時，可能還有其他算式。';
         elNote.hidden = false;
@@ -444,6 +664,412 @@ showStatic([
   { rank: '6', value: 6, suit: SUITS[0].s, red: false }
 ]);
 setPhase('idle');
+
+/* ---------- FX：彩帶、音效、跳字、震動 ---------- */
+var FX = (function () {
+  var cv = document.createElement('canvas'); cv.id = 'fx'; document.body.appendChild(cv);
+  var ctx = cv.getContext('2d'), parts = [], running = false, dpr = 1;
+  function size() { dpr = window.devicePixelRatio || 1; cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; }
+  size(); addEventListener('resize', size);
+  var COLORS = ['#f5d77e', '#e0b95a', '#8fe3a8', '#8fe3c8', '#ff8a7a', '#ffffff', '#b8a2ff'];
+  var SYM = ['♠', '♥', '♦', '♣', '+', '−', '×', '÷', '24', '數菁'];
+  function loop() {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    parts = parts.filter(function (p) { return p.life > 0; });
+    parts.forEach(function (p) {
+      p.vy += 0.32; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.r += p.vr; p.life--;
+      ctx.save(); ctx.globalAlpha = Math.min(1, p.life / 40);
+      ctx.translate(p.x * dpr, p.y * dpr); ctx.rotate(p.r); ctx.fillStyle = p.c;
+      if (p.t) { ctx.font = '700 ' + (p.s * dpr * 2) + 'px "DM Serif Display", serif'; ctx.textAlign = 'center'; ctx.fillText(p.t, 0, 0); }
+      else ctx.fillRect(-p.s * dpr / 2, -p.s * dpr / 4, p.s * dpr, p.s * dpr / 2);
+      ctx.restore();
+    });
+    if (parts.length) requestAnimationFrame(loop); else { running = false; ctx.clearRect(0, 0, cv.width, cv.height); }
+  }
+  function burst(x, y, n, power) {
+    if (reduce) return;
+    power = power || 1;
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * Math.PI * 2, sp = (4 + Math.random() * 9) * power;
+      parts.push({
+        x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 6 * power, r: Math.random() * 6, vr: (Math.random() - .5) * .4,
+        s: 7 + Math.random() * 7, c: COLORS[i % COLORS.length], life: 70 + Math.random() * 50,
+        t: Math.random() < .22 ? SYM[Math.floor(Math.random() * SYM.length)] : null
+      });
+    }
+    if (!running) { running = true; requestAnimationFrame(loop); }
+  }
+  function rain() { for (var i = 0; i < 6; i++) (function (k) { setTimeout(function () { burst(innerWidth * (k + .5) / 6, innerHeight * .25, 40, 1.1); }, k * 120); })(i); }
+  function centerOf(el) { var r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; }
+  function pop(el, text, color) {
+    var c = centerOf(el), d = document.createElement('div');
+    d.className = 'pop'; d.textContent = text; d.style.left = c.x + 'px'; d.style.top = c.y + 'px'; d.style.color = color || '#f5d77e';
+    document.body.appendChild(d); setTimeout(function () { d.remove(); }, 1200);
+  }
+  function shake(el) { if (reduce) return; el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+  // 音效（WebAudio 合成，不需要外部檔案）
+  var ac = null, on = true;
+  try { on = localStorage.getItem('pokerSound') !== 'off'; } catch (e) {}
+  function tone(f, dur, type, when, vol) {
+    if (!on) return;
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      var t = ac.currentTime + (when || 0), o = ac.createOscillator(), g = ac.createGain();
+      o.type = type || 'sine'; o.frequency.setValueAtTime(f, t);
+      g.gain.setValueAtTime(vol || .18, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+      o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + dur);
+    } catch (e) {}
+  }
+  var sfx = {
+    click: function () { tone(660, .06, 'triangle', 0, .12); },
+    merge: function () { tone(520, .08, 'triangle'); tone(780, .1, 'triangle', .05); },
+    win: function () { [523, 659, 784, 1047].forEach(function (f, i) { tone(f, .22, 'square', i * .08, .09); }); },
+    big: function () { [523, 659, 784, 1047, 1319, 1568].forEach(function (f, i) { tone(f, .3, 'square', i * .07, .08); }); },
+    bad: function () { tone(200, .25, 'sawtooth', 0, .1); tone(140, .3, 'sawtooth', .12, .1); },
+    flip: function () { tone(900, .04, 'triangle', 0, .08); },
+    tick: function () { tone(1200, .03, 'square', 0, .05); }
+  };
+  var btn = document.getElementById('snd');
+  function paint() { btn.textContent = on ? '🔊 音效開' : '🔇 音效關'; btn.setAttribute('aria-pressed', String(on)); }
+  btn.addEventListener('click', function () { on = !on; try { localStorage.setItem('pokerSound', on ? 'on' : 'off'); } catch (e) {} paint(); if (on) sfx.click(); });
+  paint();
+  return { burst: burst, rain: rain, pop: pop, shake: shake, sfx: sfx, centerOf: centerOf };
+})();
+
+/* ---------- shared helpers ---------- */
+function store(key, val) {
+  try {
+    if (val === undefined) return parseInt(localStorage.getItem(key), 10) || 0;
+    localStorage.setItem(key, String(val));
+  } catch (e) { return 0; }
+}
+function fracText(x) { return x.d === 1 ? String(x.n) : x.n + '/' + x.d; }
+function applyOp(a, b, op) {
+  if (op === '+') return mk(a.n * b.d + b.n * a.d, a.d * b.d, a.s + ' + ' + b.s, 1);
+  if (op === '−') return mk(a.n * b.d - b.n * a.d, a.d * b.d, a.s + ' − ' + par(b, b.p <= 1), 1);
+  if (op === '×') return mk(a.n * b.n, a.d * b.d, par(a, a.p < 2) + ' × ' + par(b, b.p < 2), 2);
+  if (b.n === 0) return null;
+  return mk(a.n * b.d, a.d * b.n, par(a, a.p < 2) + ' ÷ ' + par(b, b.p <= 2), 2);
+}
+
+/* ---------- tabs ---------- */
+var MODES = ['calc', 'chal', 'hilo'], mode = 'calc';
+document.querySelectorAll('.tab').forEach(function (t) {
+  t.addEventListener('click', function () {
+    mode = t.dataset.mode;
+    document.querySelectorAll('.tab').forEach(function (x) { x.setAttribute('aria-selected', String(x === t)); });
+    MODES.forEach(function (m) { $('mode-' + m).hidden = (m !== mode); });
+    if (mode === 'hilo' && !H.cur) hStart();
+    if (mode === 'chal') cHud();
+  });
+});
+
+/* ---------- 24 點挑戰 ---------- */
+var C = { state: 'idle', tiles: [], init: [], hist: [], sel: -1, op: null, target: 24, sol: '', score: 0, streak: 0, end: 0, timer: null, locked: false, uid: 0 };
+var elDiff = $('cDiff'), elTime = $('cTime');
+function timed() { return elTime.value !== '0'; }
+function bestKey() { return 'pokerBest.' + elDiff.value + '.' + elTime.value; }
+
+function cHud() {
+  $('cScore').textContent = C.score;
+  $('cStreak').textContent = C.streak;
+  $('cBest').textContent = store(bestKey());
+  $('cBestLbl').textContent = timed() ? '最佳分數' : '最佳連勝';
+  $('cTimeBox').hidden = !timed();
+}
+function cMsg(t, cls) { var m = $('cMsg'); m.textContent = t; m.className = 'msg' + (cls ? ' ' + cls : ''); }
+
+function genChallenge(diff) {
+  var n = diff === 'easy' ? 3 : diff === '24' ? 4 : 5;
+  for (var tries = 0; tries < 300; tries++) {
+    var pool = buildDeck();
+    if (diff === 'easy') pool = pool.filter(function (c) { return c.value <= 10; });
+    var cards = shuffle(pool).slice(0, n);
+    var target = diff === '24' ? 24 : diff === 'easy' ? 6 + Math.floor(Math.random() * 15) : 10 + Math.floor(Math.random() * 90);
+    var r = solveHand(cards.map(function (c) { return c.value; }), target, { max: 1, ms: 120 });
+    if (r.list.length) return { cards: cards, target: target, sol: r.list[0] };
+  }
+  return { cards: [{ rank: '4', value: 4, suit: '♠︎', red: false }, { rank: '6', value: 6, suit: '♥︎', red: true }, { rank: 'A', value: 1, suit: '♣︎', red: false }, { rank: '5', value: 5, suit: '♦︎', red: true }], target: 24, sol: '6 ÷ (5 ÷ 4 − 1)' };
+}
+
+function cDeal() {
+  var g = genChallenge(elDiff.value);
+  C.target = g.target; C.sol = g.sol;
+  C.init = g.cards.map(function (c) { return { id: ++C.uid, x: mk(c.value, 1, String(c.value), 3), card: c }; });
+  C.tiles = C.init.slice(); C.hist = []; C.sel = -1; C.op = null; C.locked = false;
+  $('cGoal').textContent = C.target;
+  cMsg('點一張牌開始。');
+  cRender(true);
+}
+
+function cRender(anim, newId) {
+  var box = $('cTiles'), playing = C.state === 'play' && !C.locked;
+  box.innerHTML = '';
+  C.tiles.forEach(function (t, i) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tile' + (i === C.sel ? ' sel' : '') + (t.id === newId ? ' flash' : '');
+    b.setAttribute('aria-pressed', String(i === C.sel));
+    b.setAttribute('aria-label', '數字 ' + fracText(t.x) + (t.card ? '（' + t.card.rank + '）' : '，由 ' + t.x.s + ' 而來'));
+    if (t.card) {
+      b.appendChild(makeCard(t.card, true).el);
+    } else {
+      b.classList.add('merged');
+      b.innerHTML = '<span class="mv"></span><span class="mx"></span>';
+      b.firstChild.textContent = fracText(t.x);
+      b.lastChild.textContent = t.x.s;
+    }
+    b.disabled = !playing;
+    b.addEventListener('click', function () { cTap(i); });
+    box.appendChild(b);
+    if (anim && !reduce) b.animate(
+      [{ opacity: 0, transform: 'translateY(-16px) rotate(-6deg)' }, { opacity: 1, transform: 'none' }],
+      { duration: 380, delay: i * 80, easing: 'ease-out', fill: 'backwards' });
+  });
+  document.querySelectorAll('#cOps .op').forEach(function (o) {
+    o.setAttribute('aria-pressed', String(o.dataset.op === C.op));
+    o.disabled = !playing || C.sel < 0;
+  });
+  $('cUndo').disabled = !playing || !C.hist.length;
+  $('cReset').disabled = !playing || !C.hist.length;
+  $('cSkip').disabled = C.state !== 'play';
+  $('cSkip').textContent = C.locked ? '下一手' : ('換一手' + (timed() ? '（−5 秒）' : ''));
+  $('cHint').disabled = !playing;
+}
+
+function cTap(i) {
+  if (C.state !== 'play' || C.locked) return;
+  if (C.sel < 0 || !C.op) {
+    C.sel = (C.sel === i && !C.op) ? -1 : i;
+    FX.sfx.click();
+    if (C.sel >= 0) cMsg('選好了！現在點一個運算符號 ＋ − × ÷');
+    cRender(); return;
+  }
+  if (i === C.sel) { C.sel = -1; C.op = null; cRender(); return; }
+  var a = C.tiles[C.sel], b = C.tiles[i];
+  var r = applyOp(a.x, b.x, C.op);
+  if (!r) { FX.sfx.bad(); cMsg('不能除以 0，換一個運算吧。', 'bad'); return; }
+  FX.sfx.merge();
+  C.hist.push(C.tiles.slice());
+  var nt = { id: ++C.uid, x: r, card: null }, next = [];
+  C.tiles.forEach(function (t, k) { if (k === i) next.push(nt); else if (k !== C.sel) next.push(t); });
+  C.tiles = next; C.op = null; C.sel = next.indexOf(nt);
+  if (next.length === 1) {
+    if (r.d === 1 && r.n === C.target) { cWin(r); }
+    else {
+      C.sel = -1;
+      cMsg('算出 ' + fracText(r) + '，不是 ' + C.target + '。按「復原一步」或「這手重來」再試一次！', 'bad');
+      FX.sfx.bad();
+      setTimeout(function () { FX.shake($('cTiles')); }, 20);
+    }
+  } else {
+    cMsg(r.s + ' = ' + fracText(r) + '。繼續選運算，再點另一張。');
+  }
+  cRender(false, nt.id);
+}
+
+function cWin(r) {
+  C.streak++;
+  var base = elDiff.value === 'easy' ? 5 : elDiff.value === '24' ? 10 : 15;
+  var pts = base + Math.min(C.streak - 1, 5) * 2;
+  C.score += pts;
+  C.locked = true;
+  var PRAISE = ['漂亮！', '太強了！', '數菁就是猛！', '神計算！', '完美！', '天才！'];
+  cMsg(PRAISE[Math.floor(Math.random() * PRAISE.length)] + r.s + ' = ' + C.target + '　+' + pts + ' 分' + (C.streak > 1 ? '（COMBO ×' + C.streak + '）' : ''), 'good');
+  var g = FX.centerOf($('cTiles'));
+  FX.burst(g.x, g.y, C.streak >= 3 ? 140 : 80, C.streak >= 3 ? 1.3 : 1);
+  FX.pop($('cTiles'), '+' + pts);
+  if (C.streak >= 2) setTimeout(function () { FX.pop($('cGoal'), 'COMBO ×' + C.streak + (C.streak >= 5 ? ' 🔥' : ''), '#ffb36b'); }, 250);
+  (C.streak >= 3 ? FX.sfx.big : FX.sfx.win)();
+  if (!timed() && C.streak > store(bestKey())) store(bestKey(), C.streak);
+  cHud();
+  setTimeout(function () { if (C.state === 'play' && C.locked) cDeal(); }, 1300);
+}
+
+function cTick() {
+  var ms = Math.max(0, C.end - Date.now()), left = Math.ceil(ms / 1000);
+  var total = parseInt(elTime.value, 10) * 1000 || 1;
+  if (left !== C.lastLeft && left <= 5 && left > 0) FX.sfx.tick();
+  C.lastLeft = left;
+  $('cClock').textContent = left;
+  $('cTimeBox').classList.toggle('warn', left <= 10);
+  $('cBar').classList.toggle('warn', left <= 10);
+  $('cBar').firstChild.style.width = (ms / total * 100) + '%';
+  if (left <= 0) cOver();
+}
+function cOver() {
+  clearInterval(C.timer);
+  C.state = 'over';
+  var best = store(bestKey()), rec = C.score > best;
+  if (rec) store(bestKey(), C.score);
+  cMsg('時間到！總分 ' + C.score + (rec ? '，新紀錄！🎉' : '（最佳紀錄 ' + best + '）'), 'good');
+  var unit = elDiff.value === 'easy' ? 5 : elDiff.value === '24' ? 10 : 15, solved = C.score / unit;
+  var title = solved >= 12 ? ['👑 數菁傳說', '你根本是計算機本人！'] :
+              solved >= 8 ? ['🏆 數菁大師', '速度與腦力兼具，太強了！'] :
+              solved >= 5 ? ['🥇 數菁高手', '手感火熱，再衝一波破紀錄！'] :
+              solved >= 2 ? ['🥈 數菁新秀', '很有潛力，多練幾次會更快！'] :
+                            ['🌱 數菁練習生', '先從「入門」或「自由練習」暖身吧！'];
+  var rk = $('cRank');
+  rk.innerHTML = title[0] + '<small></small>';
+  rk.lastChild.textContent = '總分 ' + C.score + (rec ? '・新紀錄！' : '') + '　' + title[1];
+  rk.hidden = false;
+  FX.rain(); FX.sfx.big();
+  $('cStart').textContent = '再玩一次';
+  cRender(); cHud();
+}
+function cStop(text) {
+  clearInterval(C.timer);
+  C.state = 'idle'; C.tiles = []; C.locked = false;
+  $('cClock').textContent = elTime.value === '0' ? '—' : elTime.value;
+  $('cTimeBox').classList.remove('warn');
+  $('cBar').classList.remove('warn');
+  $('cBar').firstChild.style.width = '100%';
+  $('cBar').hidden = !timed();
+  $('cRank').hidden = true;
+  $('cStart').textContent = '開始';
+  cMsg(text);
+  cRender(); cHud();
+}
+
+$('cStart').addEventListener('click', function () {
+  clearInterval(C.timer);
+  C.score = 0; C.streak = 0; C.state = 'play'; C.lastLeft = null;
+  $('cRank').hidden = true; $('cBar').hidden = !timed();
+  FX.sfx.click();
+  if (timed()) { C.end = Date.now() + parseInt(elTime.value, 10) * 1000; C.timer = setInterval(cTick, 200); cTick(); }
+  $('cStart').textContent = '重新開始';
+  cHud(); cDeal();
+});
+document.querySelectorAll('#cOps .op').forEach(function (o) {
+  o.addEventListener('click', function () {
+    if (C.sel < 0) return;
+    C.op = (C.op === o.dataset.op) ? null : o.dataset.op;
+    FX.sfx.click();
+    if (C.op) cMsg(C.tiles[C.sel].x.s + ' ' + C.op + ' ？　→ 再點另一張牌');
+    cRender();
+  });
+});
+$('cUndo').addEventListener('click', function () {
+  if (!C.hist.length) return;
+  C.tiles = C.hist.pop(); C.sel = -1; C.op = null;
+  cMsg('已復原一步。'); cRender();
+});
+$('cReset').addEventListener('click', function () {
+  C.tiles = C.init.slice(); C.hist = []; C.sel = -1; C.op = null;
+  cMsg('這手重來。'); cRender();
+});
+$('cSkip').addEventListener('click', function () {
+  if (C.state !== 'play') return;
+  if (!C.locked) {
+    C.streak = 0;
+    if (timed()) { C.end -= 5000; cTick(); if (C.state !== 'play') return; }
+  }
+  cHud(); cDeal();
+});
+$('cHint').addEventListener('click', function () {
+  if (C.state !== 'play' || C.locked) return;
+  C.locked = true; C.streak = 0;
+  cMsg('答案：' + C.sol + ' = ' + C.target + '。按「下一手」繼續。');
+  cRender(); cHud();
+});
+[elDiff, elTime].forEach(function (el) {
+  el.addEventListener('change', function () { cStop('設定已變更，按「開始」發牌。'); });
+});
+cStop('按「開始」發牌。');
+
+/* ---------- 猜大小 ---------- */
+var H = { deck: [], cur: null, streak: 0, busy: false, over: false };
+var BLANK = { rank: '', value: 0, suit: '', red: false };
+
+function hPut(id, card, up) {
+  var box = $(id); box.innerHTML = '';
+  var m = makeCard(card, up); box.appendChild(m.el);
+  return m;
+}
+function hUpdate() {
+  $('hStreak').textContent = H.streak;
+  $('hStreakBox').classList.toggle('fire', H.streak >= 5);
+  $('hBest').textContent = store('pokerBest.hilo');
+  $('hLeft').textContent = H.deck.length;
+  $('hHi').disabled = $('hLo').disabled = H.busy || H.over;
+  $('hHi').hidden = $('hLo').hidden = H.over;
+  $('hNew').hidden = !H.over;
+  var show = $('hOdds').checked && !H.over && H.cur;
+  $('hOddsTxt').hidden = !show;
+  if (show) {
+    var hi = 0, lo = 0, eq = 0;
+    H.deck.forEach(function (c) { if (c.value > H.cur.value) hi++; else if (c.value < H.cur.value) lo++; else eq++; });
+    var n = H.deck.length || 1;
+    $('hOddsTxt').textContent = '剩下的牌：較大 ' + hi + ' 張、較小 ' + lo + ' 張、一樣 ' + eq + ' 張 → 猜大過關率 ' +
+      Math.round((hi + eq) / n * 100) + '%，猜小 ' + Math.round((lo + eq) / n * 100) + '%';
+  }
+}
+function hStart() {
+  H.deck = shuffle(buildDeck()); H.cur = H.deck.pop(); H.streak = 0; H.over = false; H.busy = false;
+  hPut('hCur', H.cur, true); hPut('hNext', BLANK, false);
+  $('hTrail').innerHTML = '';
+  var m = $('hMsg'); m.className = 'msg'; m.textContent = '現在是 ' + H.cur.rank + '，下一張會更大還是更小？';
+  hUpdate();
+}
+function hMini(c) {
+  var d = document.createElement('div');
+  d.className = 'mini' + (c.red ? ' red' : '');
+  d.innerHTML = c.rank + '<br>' + c.suit;
+  $('hTrail').appendChild(d);
+}
+async function hGuess(dir) {
+  if (H.busy || H.over) return;
+  H.busy = true; hUpdate();
+  FX.sfx.flip();
+  var nx = H.deck.pop(), prev = H.cur;
+  var m = hPut('hNext', nx, false);
+  void m.el.offsetWidth;
+  m.flip.classList.add('up');
+  await sleep(520);
+  var ok = nx.value === prev.value || (dir > 0 ? nx.value > prev.value : nx.value < prev.value);
+  var msg = $('hMsg');
+  if (ok) {
+    H.streak++;
+    if (H.streak > store('pokerBest.hilo')) store('pokerBest.hilo', H.streak);
+    msg.className = 'msg good';
+    msg.textContent = (nx.value === prev.value ? '一樣大，算你過！' : '答對！') + '翻出 ' + nx.rank + '，已連對 ' + H.streak + ' 張。';
+    FX.pop($('hNext'), '+1', '#8fe3a8');
+    if (H.streak % 5 === 0) {
+      FX.rain(); FX.sfx.big();
+      setTimeout(function () { FX.pop($('hCur'), '🔥 ' + H.streak + ' 連勝！', '#ffb36b'); }, 200);
+    } else {
+      var p = FX.centerOf($('hNext')); FX.burst(p.x, p.y, 30, .7); FX.sfx.win();
+    }
+    hMini(prev);
+    H.cur = nx;
+    await sleep(450);
+    hPut('hCur', H.cur, true); hPut('hNext', BLANK, false);
+    if (!H.deck.length) {
+      hMini(H.cur);
+      H.over = true;
+      msg.textContent = '太神了！整副牌全部猜對，連對 ' + H.streak + ' 張！🏆 數菁傳說誕生！';
+      FX.rain(); setTimeout(FX.rain, 600);
+    }
+  } else {
+    H.over = true;
+    FX.sfx.bad(); FX.shake($('hNext'));
+    msg.className = 'msg bad';
+    msg.textContent = '可惜！翻出 ' + nx.rank + '，這次連對 ' + H.streak + ' 張。' +
+      (H.streak > 0 && H.streak >= store('pokerBest.hilo') ? '（追平或刷新紀錄！）' : '');
+  }
+  H.busy = false; hUpdate();
+  (H.over ? $('hNew') : (dir > 0 ? $('hHi') : $('hLo'))).focus();
+}
+$('hHi').addEventListener('click', function () { hGuess(1); });
+$('hLo').addEventListener('click', function () { hGuess(-1); });
+$('hNew').addEventListener('click', hStart);
+$('hOdds').addEventListener('change', hUpdate);
+document.addEventListener('keydown', function (e) {
+  if (mode !== 'hilo' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === 'ArrowUp') { e.preventDefault(); hGuess(1); }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); hGuess(-1); }
+  else if (e.key === 'Enter' && H.over) { e.preventDefault(); hStart(); }
+});
 </script>
 
 </body></html>
